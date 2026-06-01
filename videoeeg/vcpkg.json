@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "veeg-app",
+  "version-string": "0.1.0",
+  "description": "NeuroSync VEEG — research video-EEG monitoring app",
+  "builtin-baseline": "216bb6975d5cccd35c27a14fb39acec3ae0e8285",
+  "dependencies": [
+    "liblsl",
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": [ "avcodec", "swscale" ]
+    }
+  ]
+}
