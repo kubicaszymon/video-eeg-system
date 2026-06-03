@@ -1,0 +1,29 @@
+# systemd USER service: continuous Perun32 EEG -> LSL.
+#
+# SUPERSEDED / BREAK-GLASS ONLY. perun-control.service (control_daemon.py)
+# is now the supervisor; it owns the streamer and is what you control from
+# the PC. Keep this unit installed but DISABLED:
+#   systemctl --user disable perun-eeg.service
+# Use it only if the control daemon is down. NEVER enable both -- they
+# would collide on the single USB amp (run_eeg.sh has a guard that refuses
+# to start while the control daemon holds the device). Break-glass:
+#   systemctl --user stop perun-control.service
+#   systemctl --user start perun-eeg.service     # raw EEG back, no control
+#
+# Install to:  ~/.config/systemd/user/perun-eeg.service
+# A *user* service (not system) so it needs no sudo to start/stop. Enable
+# lingering once so user units start on boot:  sudo loginctl enable-linger $USER
+[Unit]
+Description=Perun32 EEG -> LSL continuous stream
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/perun_lsl_driver
+ExecStart=%h/perun_lsl_driver/deploy/run_eeg.sh
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,233 @@
+# Copyright (c) 2016-2018 Braintech Sp. z o.o. [Ltd.] <http://www.braintech.pl>
+# All rights reserved.
+
+import configparser
+import io
+import os
+import warnings
+
+from nose.tools import raises
+
+from braintech.obci.experiment.peer import peer_config, peer_config_parser
+
+
+class TestPeerConfigParserINI:
+
+    def setup(self):
+        self.pr = peer_config_parser.PeerConfigParserINI()
+        self.conf = peer_config.PeerConfig(warn_overwrite=True)
+
+    def test_init_parse_incomplete_sections(self):
+        """nothing"""
+        inp = """
+[config_sources]
+[local_params]
+        """
+        assert self.pr.parse(io.StringIO(inp), self.conf)
+
+    @raises(peer_config_parser.UnknownConfigSection)
+    def test_init_parse_section_unknown(self):
+        inp = """
+[config_sources]
+[ble]
+[local_params]
+[external_params]
+        """
+        self.pr.parse(io.StringIO(inp), self.conf)
+
+    def test_init_parse_whitespace_before_section(self):
+        inp = """
+  [config_sources]
+ """
+        assert self.pr.parse(io.StringIO(inp), self.conf)
+
+    def test_init_parse_headers_ok(self):
+        inp = """
+[config_sources]
+[local_params]
+[external_params]
+"""
+        assert self.pr.parse(io.StringIO(inp), self.conf) is True
+
+    def test_init_parse_sources_ok(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+[external_params]
+"""
+        assert self.pr.parse(io.StringIO(inp), self.conf) is True
+        assert repr(self.conf.config_sources) == "{'abc': ''}"
+
+    def test_init_parse_ok_standard(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+zxc=123
+[external_params]
+ble=abc.uuu
+"""
+        assert self.pr.parse(io.StringIO(inp), self.conf) is True
+        assert repr(self.conf.config_sources) == "{'abc': ''}"
+        assert self.conf.param_values == {'ble': None, 'zxc': '123'}
+        assert self.conf.ext_param_defs == {'ble': ('abc', 'uuu')}
+
+    @raises(configparser.DuplicateSectionError)
+    def test_init_parse_double_section(self):
+        inp = """
+[config_sources]
+[local_params]
+[config_sources]
+[external_params]
+        """
+        self.pr.parse(io.StringIO(inp), self.conf)
+
+    @raises(configparser.DuplicateOptionError)
+    def test_init_parse_double_local_param(self):
+        inp = """
+[config_sources]
+[local_params]
+zxc=123
+zxc=2
+[external_params]
+        """
+        self.pr.parse(io.StringIO(inp), self.conf)
+        repr(self.conf.param_values)
+
+    @raises(peer_config.ConfigOverwriteWarning)
+    def test_init_parse_param_both_local_ext(self):
+        """First are parsed config sources, then external parameters,
+        last are local params. Here external param should be overwritten
+        to local defined in the same file -- test warning"""
+        inp = """
+[config_sources]
+aaa=
+[local_params]
+zxc=2
+[external_params]
+zxc=aaa.ble
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            self.pr.parse(io.StringIO(inp), self.conf)
+
+    def test_init_parse_param_both_local_ext2(self):
+        """First are parsed config sources, then external parameters,
+        last are local params. Here external param should be overwritten
+        to local defined in the same file -- test effect"""
+        inp = """
+[config_sources]
+aaa=
+[local_params]
+zxc=2
+[external_params]
+zxc=aaa.ble
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            self.pr.parse(io.StringIO(inp), self.conf)
+            assert self.conf.param_values == {'zxc': '2'}
+
+    # Update ############################################
+
+    def test_update_parse_change_local_param(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+zxc=123
+[external_params]
+ble=abc.uuu
+"""
+        self.pr.parse(io.StringIO(inp), self.conf)
+        upd = """
+[local_params]
+zxc=oeoeoe
+"""
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            self.pr.parse(io.StringIO(upd), self.conf, update=True)
+        assert self.conf.get_param('zxc') == "oeoeoe"
+
+    def test_update_parse_local_to_ext(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+zxc=123
+[external_params]
+ble=abc.uuu
+"""
+        self.pr.parse(io.StringIO(inp), self.conf)
+        upd = """
+[external_params]
+zxc=abc.ooo
+"""
+        self.pr.parse(io.StringIO(upd), self.conf, update=True)
+        assert self.conf.get_param('zxc') is None
+        assert self.conf.ext_param_defs == \
+            {'ble': ('abc', 'uuu'), 'zxc': ('abc', 'ooo')}
+
+    def test_update_parse_ext_to_local(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+zxc=123
+[external_params]
+ble=abc.uuu
+"""
+        self.pr.parse(io.StringIO(inp), self.conf)
+        upd = """
+[local_params]
+ble=0
+"""
+        self.pr.parse(io.StringIO(upd), self.conf, update=True)
+        assert self.conf.get_param('ble') == '0'
+        assert repr(self.conf.ext_param_defs) == "{}"
+
+    def test_config_variables(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+zxc=%(dir)s/123
+[external_params]
+ble=abc.uuu
+    """
+        f = io.StringIO(inp)
+        f.name = "test/test.ini"
+        self.pr.parse(f, self.conf)
+        assert self.conf.get_param('zxc') == os.path.abspath('test/123')
+
+    @raises(ValueError)
+    def test_update_parse_new_param(self):
+        inp = """
+[config_sources]
+abc=
+[local_params]
+zxc=123
+[external_params]
+ble=abc.uuu
+"""
+        self.pr.parse(io.StringIO(inp), self.conf)
+        upd = """
+[local_params]
+new=0
+"""
+        self.pr.parse(io.StringIO(upd), self.conf, update=True)
+
+    def test_json(self):
+        inp = str(
+            '{"local_params": {"zxc": "oeoeoe"}, "config_sources": {"abc": ""}, "external_params": {"ble": "abc.uuu"}}')
+        pj = peer_config_parser.PeerConfigParserJSON()
+        pj.parse(io.StringIO(inp), self.conf)
+        assert self.conf.param_values == {u'ble': None, u'zxc': u'oeoeoe'}
+
+
+class TestPeerConfigParserJSON:
+
+    def setup(self):
+        self.pr = peer_config_parser.PeerConfigParserJSON()
+        self.conf = peer_config.PeerConfig()

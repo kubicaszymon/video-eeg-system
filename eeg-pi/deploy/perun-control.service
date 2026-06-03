@@ -1,0 +1,37 @@
+# systemd USER service: Perun32 EEG control daemon.
+# Install to:  ~/.config/systemd/user/perun-control.service
+#
+# This daemon OWNS the streamer lifecycle (it spawns/stops the EEG stream
+# itself and reconciles it to ~/perun_lsl_driver/deploy/perun-state.json).
+# It REPLACES perun-eeg.service as the thing systemd supervises. systemd
+# keeps the *daemon* alive; the daemon decides about the *streamer*.
+#
+# perun-eeg.service is kept installed-but-disabled as a break-glass fallback
+# (see deploy/README.md). Never run both at once -- they would collide on
+# the single USB device.
+#
+# Enable lingering once so it starts on boot and survives SSH logout:
+#   sudo loginctl enable-linger $USER
+#
+# Type=notify + WatchdogSec: the daemon sends READY=1 once the HTTP socket
+# is bound and pings WATCHDOG=1 from its reconciler thread. If the
+# reconciler hangs (no ping within WatchdogSec) systemd kills+restarts the
+# unit (Restart=always). WatchdogSec is deliberately generous: a normal
+# mode switch can block ~30-60s (terminate + USB release + --list probe +
+# respawn); the watchdog only catches a *truly* stuck daemon.
+[Unit]
+Description=Perun32 EEG control daemon (owns the LSL streamer)
+After=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+WorkingDirectory=%h/perun_lsl_driver
+ExecStart=%h/perun_lsl_driver/.venv/bin/python %h/perun_lsl_driver/deploy/control_daemon.py --profile %h/perun_lsl_driver/deploy/control_profile.eeg.json --bind 0.0.0.0 --port 8080
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+WatchdogSec=120
+
+[Install]
+WantedBy=default.target

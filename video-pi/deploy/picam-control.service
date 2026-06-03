@@ -1,0 +1,35 @@
+# systemd USER service: Pi camera video control daemon.
+# Install to:  ~/.config/systemd/user/picam-control.service   (on video-pi)
+#
+# Same daemon as the EEG Pi (control_daemon.py is a verbatim copy), driven
+# by control_profile.video.json. It OWNS the video streamer: spawns/stops
+# stream_picam.py and reconciles it to ~/pi_camera/deploy/picam-state.json.
+# It REPLACES the old camera autostart as the thing systemd supervises.
+#
+# Keep the old autostart (stream_picam.service) installed-but-disabled as a
+# break-glass fallback (see deploy/README.md). Never run both -- they would
+# collide on the single camera device.
+#
+# Enable lingering once so it starts on boot and survives SSH logout:
+#   sudo loginctl enable-linger $USER
+#
+# Type=notify + WatchdogSec: daemon sends READY=1 once the HTTP socket is
+# bound and pings WATCHDOG=1 from its reconciler thread; a hung reconciler
+# is killed+restarted (Restart=always). WatchdogSec is generous: a mode
+# switch can block while the camera is released + the streamer respawns.
+[Unit]
+Description=Pi camera video control daemon (owns the LSL streamer)
+After=network-online.target
+
+[Service]
+Type=notify
+NotifyAccess=main
+WorkingDirectory=%h/pi_camera
+ExecStart=%h/pi_camera/.venv-video/bin/python %h/pi_camera/deploy/control_daemon.py --profile %h/pi_camera/deploy/control_profile.video.json --bind 0.0.0.0 --port 8081
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+WatchdogSec=120
+
+[Install]
+WantedBy=default.target

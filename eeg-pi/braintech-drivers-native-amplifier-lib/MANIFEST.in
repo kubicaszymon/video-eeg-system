@@ -1,0 +1,4 @@
+recursive-include braintech/drivers/native_amplifier_lib *.pyx *.pxi *.pxd *.rules *.ini *.h *.c *.cpp *.hpp
+include versioneer.py
+include braintech/drivers/native_amplifier_lib/_version.py
+recursive-include braintech/drivers/native_amplifier_lib/ *.py

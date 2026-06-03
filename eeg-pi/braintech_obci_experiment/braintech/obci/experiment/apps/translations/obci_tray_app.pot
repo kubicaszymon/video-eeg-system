@@ -1,0 +1,61 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"POT-Creation-Date: 2020-08-07 18:50+CEST\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: ENCODING\n"
+"Generated-By: pygettext.py 1.5\n"
+
+
+#: obci_tray/obci_tray_app.py:49
+msgid "Telemetry agreement"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:51
+msgid "Shut down EEG acquisition server"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:60
+msgid "Launching EEG acquisition server"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:81
+msgid "EEG acquisition server started"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:82
+msgid "EEG acquisition server"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:88
+msgid "Changes will be acknowledged after system restart."
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:92
+msgid "Shutdown acquisition server"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:93
+msgid "All amplifiers will be switched off when the program is closed.  Shutdown?"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:99
+msgid "Shutting down EEG acquisition server"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:111
+msgid "Server shut down"
+msgstr ""
+
+#: obci_tray/obci_tray_app.py:130
+msgid "EEG acquisition server already running!"
+msgstr ""
+

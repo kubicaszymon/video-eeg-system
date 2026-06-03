@@ -1,0 +1,3 @@
+recursive-include braintech *
+include versioneer.py
+include braintech/obci/core/_version.py

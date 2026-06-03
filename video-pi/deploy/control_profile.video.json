@@ -1,0 +1,39 @@
+{
+  "kind": "video",
+  "label": "Pi Camera Video",
+  "python": "{HOME}/pi_camera/.venv-video/bin/python",
+  "workdir": "{HOME}/pi_camera",
+  "state_file": "{HOME}/pi_camera/deploy/picam-state.json",
+  "lock_file": "{HOME}/pi_camera/deploy/.control.lock",
+
+  "usb_release_s": 2,
+  "start_grace_s": 6,
+  "term_timeout_s": 8,
+
+  "default_state": {
+    "mode": "video",
+    "width": 960,
+    "height": 720,
+    "fps": 30,
+    "bitrate": 4000000,
+    "gop": 0,
+    "hflip": false,
+    "vflip": false,
+    "name": "Perun32_Video"
+  },
+
+  "ranges": {
+    "width":   [160, 1920],
+    "height":  [120, 1080],
+    "fps":     [1, 60],
+    "bitrate": [100000, 20000000],
+    "gop":     [0, 300]
+  },
+  "name_regex": "^[A-Za-z0-9_-]+$",
+
+  "video_argv": ["{python}", "stream_picam.py",
+                 "-n", "{name}",
+                 "-W", "{width}", "-H", "{height}",
+                 "-f", "{fps}", "-b", "{bitrate}", "-g", "{gop}"],
+  "flags": { "hflip": "--hflip", "vflip": "--vflip" }
+}

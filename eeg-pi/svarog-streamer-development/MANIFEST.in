@@ -1,0 +1,5 @@
+include *.svg
+recursive-include svarog_streamer *
+include versioneer.py
+include svarog_streamer/_version.py
+prune .eggs

@@ -1,0 +1,33 @@
+{
+  "kind": "eeg",
+  "label": "Perun32 EEG",
+  "python": "{HOME}/perun_lsl_driver/.venv/bin/python",
+  "workdir": "{HOME}/perun_lsl_driver",
+  "state_file": "{HOME}/perun_lsl_driver/deploy/perun-state.json",
+  "lock_file": "{HOME}/perun_lsl_driver/deploy/.control.lock",
+
+  "usb_release_s": 3,
+  "start_grace_s": 6,
+  "term_timeout_s": 8,
+
+  "default_state": {
+    "mode": "eeg",
+    "rate": 500,
+    "channels": null,
+    "name": "Perun32",
+    "impedance_duration": 45
+  },
+
+  "allowed_rates": [500, 1000, 2000, 4000, 8000, 16000],
+  "impedance_stream_name": "Perun32-Impedance",
+  "name_regex": "^[A-Za-z0-9_-]+$",
+
+  "list_argv": ["{python}", "-m", "braintech.obci.experiment.cmd.obci_lsl_stream", "--list"],
+  "ampid_regex": "id:\\s*\"(Perun32[^\"]*)\"",
+
+  "eeg_argv": ["{python}", "-m", "braintech.obci.experiment.cmd.obci_lsl_stream",
+               "-a", "{ampid}", "-n", "{name}", "-s", "{rate}"],
+  "impedance_argv": ["{python}", "stream_perun32.py",
+                     "-a", "{ampid}", "-n", "{impedance_name}", "-s", "{rate}"],
+  "channels_flag": "-c"
+}

@@ -1,0 +1,16 @@
+# amplifiers
+braintech-drivers-native-amplifier-lib==2.8.0.post38+gb714b77
+braintech-drivers-perun8==2.8.0.post38+gb714b77
+braintech-drivers-perun32==2.8.1.dev38+gb714b77
+braintech-drivers-double-amplifier==2.8.1.dev38+gb714b77
+#obci_mono
+braintech-obci-core==2.8.0+21.ga030cb6
+braintech-obci-experiment==2.8.0+21.ga030cb6
+braintech-obci-signal-processing==2.8.0+21.ga030cb6
+braintech-utils==2.8.0+21.ga030cb6
+obci-demo==2.8.0+21.ga030cb6
+obci-p300==2.8.0+21.ga030cb6
+obci-ugm==2.8.0+21.ga030cb6
+bci-panel==2.8.0+21.ga030cb6
+#rest
+PySide2==5.12.0

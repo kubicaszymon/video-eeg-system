@@ -1,0 +1,21 @@
+[Desktop Entry]
+Categories=Science
+Comment[en_US]=
+Comment=
+Encoding=UTF-8
+Exec=echo Running svarog_streamer && svarog_streamer -h && bash
+GenericName[en_US]=
+GenericName=
+Icon=braintech
+MimeType=
+Name[en_US]=Perun amplifier LSL Streaming app
+Name=Perun amplifier LSL Streaming app
+Path=
+StartupNotify=true
+Terminal=true
+TerminalOptions=
+Type=Application
+X-DBUS-ServiceName=
+X-DBUS-StartupType=
+X-KDE-SubstituteUID=false
+X-KDE-Username=

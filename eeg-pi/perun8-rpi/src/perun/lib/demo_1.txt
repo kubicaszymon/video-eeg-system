@@ -1,0 +1,105 @@
+
+---
+zawartosc demo_1.zip:
+ADS1299.h
+BLE.h
+common.h
+delay.h
+demo_1.cc
+ftdi_cbus_set.h
+FTDI.h
+ftdi_uart.h
+ftdi_uart_status.h
+get_u.h
+Logger_C.h
+Logger.h
+mingw
+Msg.h
+Msg_rf.h
+Pkt.h
+rf_proto.h
+u2s_24bit.h
+uart_cmd.h
+uart_cmd_set_value.h
+uart_msg.h
+linux/demo_1
+linux/Makefile
+firmware/head.out
+firmware/dongle.out
+
+
+firmware/head.out - firmware do zaladowania do plytki "head"
+firmware/dongle.out - firmware do zaladowania do plytki "dongle"
+
+
+---
+wymagania do kompilacji:
+- srodowisko Linux (gcc, make, etc.)
+- libftdi (wersja >= 0.20)
+linux/Makefile uzywa libftdi-config do okreslenia nazw wymaganych bibliotek jesli libftdi-config nie jest dostepny, mozna je podac przez:
+LIBFTDI=-lftdi -lusb
+
+
+---
+kompilacja:
+cd linux
+make
+
+
+---
+uruchomienie:
+po zaladowaniu firmware i wlaczeniu plytek
+plytka "head" powinna wlaczac LED co 2 sec na ok 0.3 sec
+plytka "dongle" powinna wlaczac LED co ok 1 sec (pojedynczy lub podwojny blysk w zaleznosci od stanu komunikacji)
+
+linux/demo_1 <ftdi_idx> <transmission_time>
+
+ftdi_idx - numer urzadzenia FTDI, domyslnie: 0 - pierwsze urzadzenie
+transmission_time - ilosc danych do przeslania, w sekundach, domyslnie: 10 sec
+
+podczas przesylania danych plytka "head" wlacza LED co 0.5 sec na 0.25 sek
+
+
+---
+tworzone pliki:
+/tmp/ADC.dat - odebrane dane
+/tmp/Acc.dat - odebrane dane
+/tmp/demo_1.log - log wykonania
+
+w wypadku problemow prosze o zalaczenie "demo_1.log"
+
+
+---
+przykladowe komunikaty z dzialania programu:
+(wersje firmware i inne sczegoly ulegly zmianie)
+
+M: UUUUUUUU 030 005 030 00A VD Aug 20 2017 20:29:20[0a] (49)
+- informacja o firmware plytki dongle
+
+HW: Vcc: 3.320V Temp: 36C
+- informacja o stanie plytki dongle
+
+nothing received
+- brak komunikacji z plytka head
+
+Rsp addr: (len=6) 4e ad 11 18 53 89
+- odebrano odpowiedz z plytki head
+
+seq: 1f, cmd: 0 HW_STAT, Vcc: 2.520V, Temp: 28C, Pwr: 5, Rssi: -57, UpTime: 308.684
+- informacja o stanie plytki head
+
+seq: 21, cmd: 1 SW_DATE, "Aug 21 2017 20:35:11"
+- informacja o firmware plytki head
+
+  0: rx_len: 116, status: 3f, rssi: -59, dt: 0.000ms, hdr: 02, BLE len: 108
+100: rx_len: 116, status: 3f, rssi: -59, dt: 7.994ms, hdr: 02, BLE len: 108
+...
+- przesylanie danych, rssi - sila odbieranego sygnalu [dB]
+
+| pkt: 1250, err: 0, ign: 0, data: 135000, rssi: (-61) -61 -59.1 -57
+| time: 7.926ms 8.086ms, rate: 13.500 bytes/ms
+- podsumowanie transmisji (informacja z plytki dongle)
+
+seq: 29, cmd: 2 TR_STAT, add1: 1254, add2: 19, cmd: 1312, tx: 1312, ack: 1253, re: 58, done: 1253, rx: 0, err: 0, ign: 0, empty: 1253, rssi: -61 -58, res: 41
+- podsumowanie transmisji (informacja z plytki head)
+

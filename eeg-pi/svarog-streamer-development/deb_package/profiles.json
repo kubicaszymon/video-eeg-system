@@ -1,0 +1,6 @@
+{
+  "ubuntu1804": {
+    "docker_image": "vdist_svarog_streamer:1804",
+    "script": "ubuntu.sh"
+  }
+}

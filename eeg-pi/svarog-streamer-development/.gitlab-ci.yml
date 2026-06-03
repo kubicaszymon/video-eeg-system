@@ -1,0 +1,151 @@
+image: obci-image:latest
+
+variables:
+  DEVOPS_VERSION: 1.0.4
+  SVAROG_WIN_LINK: $GITLAB_ADRESS/api/v4/projects/35/jobs/116662/artifacts
+  SVAROG_LIN_LINK: $GITLAB_ADRESS/api/v4/projects/35/jobs/116663/artifacts
+
+stages:
+  - test_nsis
+  - build_vdist_image
+  - build_obci
+  - build_installer
+  - test
+  - deploy
+  - build
+  - deploy_website
+
+
+rebuild_vdist_image:
+  stage: build_vdist_image
+  when: manual
+  tags: [physical]
+  before_script: []
+  script: docker build -t vdist_svarog_streamer:1804 deb_package/ubuntu
+
+build_svarog_streamer_windows:
+  except:
+    - api
+    - schedules
+    - triggers
+  stage: build_obci
+  when: manual
+  before_script:
+  # needs MSVC 2015 for pyinstaller, but not for end client
+  # required to have distutils which is required by p300 app
+    - C:/Python36/python.exe -m pip install virtualenv==16.1.0
+    - C:/Python36/python.exe -m virtualenv venv
+    - source venv/Scripts/activate
+    - pip3 install --no-cache devops==$DEVOPS_VERSION --index $DEVPI_URL/obci/stable
+    - devpi_setup
+  script:
+    - pip3 install -U pip
+    - devpi_use obci/installers
+    - pip3 install -r apps/win_build_requirements.txt
+    - pip3 install -r apps/win_requirements.txt
+    - cd apps
+    - pyinstaller svarog_streamer.spec
+    - cp dist/svarog_streamer/Microsoft.VC90.CRT.manifest dist/svarog_streamer/pylsl/
+    - cp dist/svarog_streamer/msvcr90.dll dist/svarog_streamer/pylsl/
+    - cp dist/svarog_streamer/msvcp90.dll dist/svarog_streamer/pylsl/
+    - cp dist/svarog_streamer/msvcm90.dll dist/svarog_streamer/pylsl/
+    - cp -r dist ../
+
+  artifacts:
+    name: "obci_frozen_build_{$CI_BUILD_NAME_$CI_BUILD_REF_NAME}"
+    paths:
+    - ./dist/*
+    expire_in: 1 week
+  tags:
+    - win10
+
+build_svarog_streamer_windows_installer:
+  except:
+    - api
+    - schedules
+    - triggers
+  stage: build_installer
+  when: manual
+  dependencies:
+    - build_svarog_streamer_windows
+  before_script:
+  # needs MSVC 2015 for pyinstaller, but not for end client
+  # required to have distutils which is required by p300 app
+    - C:/Python36/python.exe -m pip install virtualenv==16.1.0
+    - C:/Python36/python.exe -m virtualenv venv
+    - source venv/Scripts/activate
+    - pip3 install --no-cache devops==$DEVOPS_VERSION --index $DEVPI_URL/obci/stable
+  script:
+    - fab download_svarog:$SVAROG_WIN_LINK,$ARTIFACTS_ACCESS_TOKEN
+    - unzip svarog.zip
+    - mv svarog_win dist/svarog
+    - cp apps/braintech.ico dist/svarog_streamer/braintech.ico
+    - cp apps/svarog.ico dist/svarog_streamer/svarog.ico
+    - mkdir -p dist/svarog_streamer/redist/
+    - cp resources/Perun32_driver/InstallDriver.exe dist/svarog_streamer/redist/InstallPerun32Driver.exe
+    - export GITVERSION=`git describe --tags`
+    - export NSIS_VER=`python gen_version.py`
+    - sed -i "s/__VERSION__/$GITVERSION/g" "Svarog_Streamer.nsi"
+    - sed -i "s/__NSISVERSION__/$NSIS_VER/g" "Svarog_Streamer.nsi"
+    - /C/Program\ Files\ \(x86\)/NSIS/makensis.exe "Svarog_Streamer.nsi"
+    - sed -i "s/__WINDOWS_SIGNING_CERT_SHA__/$WINDOWS_SIGNING_CERT_SHA/g" "sign.bat"
+    - ./sign.bat Svarog_Streamer_install*.exe
+
+  artifacts:
+    name: "obci_website_offer_windows_{$CI_BUILD_NAME_$CI_BUILD_REF_NAME}"
+    paths:
+    - Svarog_Streamer_install*.exe
+    expire_in: 1 week
+  tags:
+    - win10
+
+build_svarog_streamer_deb:
+  tags:
+    - physical
+  except:
+    - api
+    - schedules
+    - triggers
+  stage: build_installer
+  when: manual
+  before_script:
+    - python3.6 -m venv venv
+    - source venv/bin/activate
+    - pip3 install --no-cache devops vdist==1.4.9 --index $DEVPI_URL/obci/stable
+    - pip3 install wheel
+    - devpi_setup
+  script:
+    - devpi_use obci/installers
+    - fab download_svarog:$SVAROG_LIN_LINK,$ARTIFACTS_ACCESS_TOKEN
+    - unzip svarog.zip
+    - mv svarog_linux svarog
+    - mkdir -p svarog_streamer/svarog/
+    - mv svarog/* svarog_streamer/svarog/
+    - pip install .
+    - devpi_upload
+    - export VERSION=`python setup.py --version`
+    - sed -i "s/__VERSION__/$VERSION/g" "deb_package/data/requirements.txt"
+    - fab build_svarog_streamer
+  artifacts:
+    name: "obci_oferta_na_strone_linux_{$CI_BUILD_NAME_$CI_BUILD_REF_NAME}"
+    paths:
+    - ./dist/*.deb
+    expire_in: 1 week
+
+deploy_braintech_pl:
+  image: deployment-image
+  stage: deploy_website
+  when: manual
+  before_script:
+    - apt-get update -qq -y
+    - apt-get install -y -qq sshpass openssh-client uuid-runtime
+  dependencies:
+    - build_svarog_streamer_deb
+    - build_svarog_streamer_windows_installer
+  script:
+    - export ADDRESS=$BRAINTECH_SRV
+    - export USR=$BRAINTECH_USR
+    - export PSW=$BRAINTECH_PWD
+    - mv dist/* ./
+    - ./ci/deploy.sh
+  environment: braintech_pl_production

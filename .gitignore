@@ -1,0 +1,45 @@
+# ===========================================================================
+# Video-EEG system — repository ignore rules
+# ===========================================================================
+
+# --- C++ / CMake / Visual Studio build artifacts (regenerable) ---
+out/
+build/
+.vs/
+*.user
+CMakeUserPresets.json
+smoke.log
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+# Virtual environments are machine-specific — never commit them
+.venv/
+.venv-pc/
+
+# --- Recorded sessions (large binary data, not source) ---
+recordings/
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS cruft ---
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# --- Claude Code harness config (local, not thesis content) ---
+.claude/
+
+# --- Personal / private (NEVER publish: CV, recruitment docs, etc.) ---
+dokumenty/
+
+# --- Unrelated personal project (kept on disk, excluded from this repo) ---
+szablon_treningowy/
+
+# --- Vendored copies / build trees not used by the vcpkg build ---
+videoeeg/3rdparty/

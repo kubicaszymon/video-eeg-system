@@ -1,0 +1,32 @@
+# systemd USER service: continuous Pi-camera video -> LSL.
+#
+# SUPERSEDED / BREAK-GLASS ONLY. picam-control.service (control_daemon.py)
+# is now the supervisor; it owns the streamer and is what you control from
+# the PC. Keep this unit installed but DISABLED:
+#   systemctl --user disable stream_picam.service
+# Use it only if the control daemon is down. NEVER enable both -- they
+# would collide on the single camera. Break-glass:
+#   systemctl --user stop picam-control.service
+#   systemctl --user start stream_picam.service   # raw video back, no control
+#
+# Install to:  ~/.config/systemd/user/stream_picam.service   (on video-pi)
+# A *user* service (no sudo). Enable lingering once so user units start on
+# boot:  sudo loginctl enable-linger $USER
+#
+# NOTE: if the video Pi already has an existing stream_picam.service from
+# the original setup, replace it with this one (it now points at the
+# guarded run_picam.sh launcher) so the break-glass interlock applies.
+[Unit]
+Description=Pi camera video -> LSL continuous stream (break-glass)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/pi_camera
+ExecStart=%h/pi_camera/deploy/run_picam.sh
+Restart=always
+RestartSec=3
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target

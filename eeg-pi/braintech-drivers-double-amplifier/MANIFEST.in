@@ -1,0 +1,3 @@
+include versioneer.py
+include braintech/drivers/double_amplifier/_version.py
+recursive-include braintech/drivers/double_amplifier/ *

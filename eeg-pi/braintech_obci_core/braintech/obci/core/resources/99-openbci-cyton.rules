@@ -1,0 +1,1 @@
+SUBSYSTEM=="tty", DRIVER=="", ATTRS{interface}=="FT231X USB UART", DRIVERS=="ftdi_sio", MODE="0666"

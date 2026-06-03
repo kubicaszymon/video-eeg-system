@@ -1,0 +1,2 @@
+ATTRS{idVendor}=="04b4", ATTRS{idProduct}=="8613", MODE="0666", NAME="perun32_%n"
+ATTRS{idVendor}=="16d0", ATTRS{idProduct}=="0fab", MODE="0666", NAME="perun32_%n"

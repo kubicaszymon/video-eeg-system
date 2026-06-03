@@ -1,0 +1,6 @@
+recursive-include braintech *.pyx *.px[di] *.rules *.ini
+recursive-include src *.pyx *.px[di] *.h *.c *.cpp *.hpp
+recursive-include native_lib_src *.cpp *.hpp *.h *.c
+recursive-include win_libs *.dll *.sys *.h *.lib
+include versioneer.py
+include braintech/drivers/perun8/_version.py
