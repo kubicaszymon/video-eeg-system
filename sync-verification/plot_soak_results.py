@@ -106,40 +106,46 @@ def main():
 
     fig, ax = plt.subplots(3, 1, figsize=(8.2, 9.0), sharex=True)
 
+    capture = 100.0 * ets.size / (srate * (ets[-1] - ets[0]))
+
+    # Clean, short panel titles — all numbers go in the caption (printed below).
     ax[0].plot(eh, erate, color=C_EEG, lw=1.0)
     ax[0].axhline(srate, color=C_NOM, lw=1.0, ls=":")
     ax[0].set_ylabel("EEG rate (Hz)")
     ax[0].set_ylim(srate * 0.90, srate * 1.02)
-    ax[0].set_title(f"(a) EEG sampling rate  -  mean {eff_eeg:.2f} Hz, "
-                    f"{100*(ets.size)/(srate*(ets[-1]-ets[0])):.3f}% of nominal captured")
+    ax[0].set_title("(a) EEG sampling rate")
 
     ax[1].plot(vh, vrate, color=C_VID, lw=1.0)
     ax[1].axhline(30.0, color=C_NOM, lw=1.0, ls=":")
     ax[1].set_ylabel("Video rate (fps)")
     ax[1].set_ylim(0, 40)
-    ax[1].set_title(f"(b) Video frame rate  -  mean {eff_fps:.2f} fps, 0 dropped frames")
+    ax[1].set_title("(b) Video frame rate")
 
     ax[2].plot(th, inter - inter[0], color=C_EEG, lw=0.6, alpha=0.30,
                label="measured offset (raw)")
     mx, my = _binned_median(th, inter, args.bin_min / 60.0)
-    ax[2].plot(mx, my - inter[0], color=C_EEG, lw=1.8,
-               label="5-min median")
+    ax[2].plot(mx, my - inter[0], color=C_EEG, lw=1.8, label="5-min median")
     ax[2].plot(th, (slope * th + icpt) - inter[0], color=C_FIT, lw=1.6, ls="--",
-               label=f"linear fit: {slope:+.3f} ms/h")
+               label="linear fit")
     ax[2].set_ylabel("inter-stream\nclock offset (ms)")
-    ax[2].set_xlabel("time since start (hours)")
-    ax[2].set_title("(c) EEG↔video LSL clock offset  -  relative drift "
-                    f"{slope:+.3f} ms/h (sub-ms/h)")
-    ax[2].legend(loc="best")
+    ax[2].set_xlabel("Time since start (h)")
+    ax[2].set_title("(c) Inter-stream clock offset")
+    ax[2].legend(loc="upper right", frameon=False)
 
-    fig.suptitle(f"49-hour continuous video-EEG recording  "
-                 f"(duration {dur_h:.1f} h)", fontsize=14, y=0.995)
-    fig.tight_layout(rect=[0, 0, 1, 0.985])
+    fig.tight_layout()
     p = os.path.join(out, "soak_overview.png")
     fig.savefig(p); plt.close(fig)
     print("wrote", p)
-    print(f"  EEG {eff_eeg:.3f} Hz | video {eff_fps:.3f} fps | "
-          f"inter-stream drift {slope:+.3f} ms/h over {dur_h:.1f} h")
+    cap = (r"\caption{Forty-nine-hour continuous video-EEG recording "
+           r"(duration %.1f~h). (a) EEG sampling rate: mean %.2f~Hz, %.3f\%% of "
+           r"the nominal samples captured (a single brief stream reconnect near "
+           r"hour~20). (b) Video frame rate: mean %.2f~fps, no dropped frames. "
+           r"(c) Inter-stream EEG--video LSL clock offset --- raw (light), 5-min "
+           r"median (solid) and linear fit (dashed): the relative drift is only "
+           r"$%+.3f$~ms/h (sub-ms/h) and is removed offline via the recorded "
+           r"\texttt{time\_correction}.}"
+           % (dur_h, eff_eeg, capture, eff_fps, slope))
+    print("\n--- LaTeX caption ---\n" + cap + "\n")
 
 
 if __name__ == "__main__":

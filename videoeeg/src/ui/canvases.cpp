@@ -13,31 +13,92 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstdint>
+#include <random>
+#include <utility>
+#include <vector>
 
 namespace {
 
-constexpr int kChannels = 8;
+constexpr int kChannels = 32;   // matches the BrainTech Perun32 channel count
 const std::array<const char *, kChannels> kLabels = {
-    "Fp1", "Fp2", "F3", "F4", "C3", "C4", "O1", "O2"};
+    "Fp1", "Fp2", "AF3", "AF4", "F7",  "F3",  "Fz",  "F4",
+    "F8",  "FC5", "FC1", "FC2", "FC6", "T7",  "C3",  "Cz",
+    "C4",  "T8",  "CP5", "CP1", "CP2", "CP6", "P7",  "P3",
+    "Pz",  "P4",  "P8",  "PO3", "PO4", "O1",  "Oz",  "O2"};
 
 constexpr double kSampleStepPx = 3.0;
 constexpr double kScrollPeriodMs = 9000.0; // one tile-width per 9 s
 constexpr double kAmpFraction = 0.42;      // matches design makeTrace amp
 
-double traceValue(int channel, double t)
+// Realistic synthetic EEG, used only as the offline fallback (no hardware) —
+// e.g. for thesis screenshots/figures. Built from filtered Gaussian noise (so it
+// looks like a real recording, not smooth sines): a 1/f-ish background, a
+// posterior-dominant alpha rhythm that waxes and wanes, plus *localised*
+// artifacts — frontal eye blinks, temporal muscle bursts, and occasional
+// single-channel electrode pops. No synchronous whole-head transients. The
+// per-channel assembly lives in EegCanvas::rebuildSamples().
+
+// 10-20 region of a channel: 0 frontal-pole, 1 fronto-central, 2 frontal,
+// 3 temporal, 4 central, 5 parietal, 6 occipital.
+int regionOf(int channel)
 {
-    const double seed = channel * 13.0 + 5.0;
-    const double w = 2.0 * M_PI;
-    double v = std::sin(t * w * 3.0  + seed)        * 0.30
-             + std::sin(t * w * 7.0  + seed * 2.0)  * 0.18
-             + std::sin(t * w * 11.0 + seed * 0.7)  * 0.32
-             + std::sin(t * w * 19.0 + seed * 1.3)  * 0.10;
-    if (channel == 0 || channel == 1) {
-        double phase = std::fmod(t - 0.62 + 1.0, 1.0);
-        double dist = std::min(phase, 1.0 - phase);
-        v += std::exp(-dist * dist * 1200.0) * 0.9;
+    const char *l = kLabels[channel];
+    if ((l[0] == 'F' && l[1] == 'p') || (l[0] == 'A' && l[1] == 'F')) return 0;
+    if (l[0] == 'F' && l[1] == 'C') return 1;
+    if (l[0] == 'F')                return 2;
+    if (l[0] == 'T')                return 3;
+    if (l[0] == 'C')                return 4;   // C* and CP*
+    if (l[0] == 'P')                return 5;   // P* and PO*
+    return 6;                                    // O*
+}
+
+// Pink-ish (1/f) background: sum of AR(1) leaky integrators of white noise over
+// octave time-constants, weighted ~sqrt(tau). Returned unit-variance.
+std::vector<double> genPink(int n, std::mt19937 &rng)
+{
+    std::normal_distribution<double> N(0.0, 1.0);
+    std::vector<double> out(n, 0.0);
+    static const double fr[6] = {0.0015, 0.003, 0.006, 0.0125, 0.025, 0.05};
+    for (double f : fr) {
+        const double tau = std::max(2.0, f * n);
+        const double a = std::exp(-1.0 / tau), b = 1.0 - a, wgt = std::sqrt(tau);
+        double prev = 0.0;
+        for (int i = 0; i < n; ++i) { prev = a * prev + b * N(rng); out[i] += wgt * prev; }
     }
-    return v;
+    double m = 0.0; for (double v : out) m += v; m /= n;
+    double s = 0.0; for (double v : out) s += (v - m) * (v - m);
+    s = std::sqrt(s / n) + 1e-9;
+    for (double &v : out) v = (v - m) / s;
+    return out;
+}
+
+// Narrow-band oscillation (a 2-pole resonator driven by white noise) at fa
+// cycles/sample — used for the alpha rhythm and muscle bursts. Unit-variance.
+std::vector<double> genReson(int n, double fa, double r, std::mt19937 &rng)
+{
+    std::normal_distribution<double> N(0.0, 1.0);
+    const double w0 = 2.0 * M_PI * fa, bb = 2.0 * r * std::cos(w0), cc = -r * r;
+    std::vector<double> o(n);
+    double y1 = 0.0, y2 = 0.0;
+    for (int i = 0; i < n; ++i) { double y = bb * y1 + cc * y2 + N(rng); o[i] = y; y2 = y1; y1 = y; }
+    double s = 0.0; for (double v : o) s += v * v; s = std::sqrt(s / n) + 1e-9;
+    for (double &v : o) v /= s;
+    return o;
+}
+
+// Slow random amplitude envelope in ~[0.35, 1.05] (for alpha waxing / waning).
+std::vector<double> slowEnv(int n, double frac, std::mt19937 &rng)
+{
+    std::normal_distribution<double> N(0.0, 1.0);
+    const double tau = std::max(2.0, frac * n), a = std::exp(-1.0 / tau), b = 1.0 - a;
+    std::vector<double> y(n);
+    double prev = 0.0;
+    for (int i = 0; i < n; ++i) { prev = a * prev + b * N(rng); y[i] = prev; }
+    double s = 0.0; for (double v : y) s += v * v; s = std::sqrt(s / n) + 1e-9;
+    for (double &v : y) v = 0.35 + 0.7 * (0.5 + 0.5 * std::tanh(1.3 * v / s));
+    return y;
 }
 
 } // namespace
@@ -102,16 +163,81 @@ QRect EegCanvas::traceAreaRect() const
 void EegCanvas::rebuildSamples()
 {
     const double w = std::max(1, traceAreaRect().width());
-    const int count = static_cast<int>((2.0 * w) / kSampleStepPx) + 2;
+    const int n = static_cast<int>((2.0 * w) / kSampleStepPx) + 2;
+
+    // Per-region weights: 0 fp, 1 fc, 2 f, 3 t, 4 c, 5 p, 6 o.
+    static const double kAlphaGain[7] = {0.05, 0.18, 0.10, 0.20, 0.35, 0.78, 1.00};
+    static const double kBlinkGain[7] = {1.00, 0.18, 0.42, 0.00, 0.00, 0.00, 0.00};
+
+    // Eye blinks are (near-)synchronous across the frontal field -> shared times.
+    std::mt19937 master(20260603u);
+    std::uniform_int_distribution<int> Upos(0, std::max(0, n - 1));
+    const int nBlink = std::max(2, n / 420);
+    std::vector<int> blinkAt(nBlink);
+    for (int &bt : blinkAt) bt = Upos(master);
+
     for (int ch = 0; ch < kChannels; ++ch) {
-        auto &col = m_channels[ch];
-        col.resize(count);
-        for (int k = 0; k < count; ++k) {
-            const double x = k * kSampleStepPx;
-            const double t = x / w;
-            col[k] = {static_cast<float>(x),
-                      static_cast<float>(traceValue(ch, t))};
+        const int r = regionOf(ch);
+        std::mt19937 rng(1000u + static_cast<unsigned>(ch));
+        std::uniform_real_distribution<double> U(0.0, 1.0);
+        std::uniform_int_distribution<int> Up(0, std::max(0, n - 1));
+
+        std::vector<double> sig = genPink(n, rng);
+        for (double &v : sig) v *= 0.9;
+
+        // posterior-dominant alpha, amplitude waxing / waning
+        if (kAlphaGain[r] > 0.06) {
+            const double fa = 0.05 + (U(rng) - 0.5) * 0.008;   // ~10 Hz, slight wobble
+            const std::vector<double> env = slowEnv(n, 0.13, rng);
+            const std::vector<double> al = genReson(n, fa, 0.986, rng);
+            for (int i = 0; i < n; ++i) sig[i] += kAlphaGain[r] * 1.05 * env[i] * al[i];
         }
+
+        // frontal eye blinks (synchronous; weighted by region)
+        if (kBlinkGain[r] > 0.0) {
+            const double wdt = 0.02 * n;
+            for (int bt : blinkAt)
+                for (int i = 0; i < n; ++i) {
+                    const double d = (i - bt) / wdt;
+                    sig[i] += kBlinkGain[r] * 4.5 * std::exp(-d * d) * (1.0 - (d / 2.6) * (d / 2.6));
+                }
+        }
+
+        // temporal (and lateral-frontal) muscle bursts
+        const bool lateralF = (r == 2 && (kLabels[ch][1] == '7' || kLabels[ch][1] == '8'));
+        if (r == 3 || lateralF) {
+            const int bursts = 1 + static_cast<int>(U(rng) * 2.0);   // 1 or 2
+            for (int j = 0; j < bursts; ++j) {
+                const int c0 = Up(rng);
+                const std::vector<double> mb = genReson(n, 0.22, 0.9, rng);
+                const double amp = (r == 3) ? 0.7 : 0.4, ew = 0.05 * n;
+                for (int i = 0; i < n; ++i) {
+                    const double e = std::exp(-((i - c0) / ew) * ((i - c0) / ew));
+                    sig[i] += amp * e * mb[i];
+                }
+            }
+        }
+
+        // occasional single-channel electrode pop / movement transient
+        if (U(rng) < 0.18) {
+            const int c0 = Up(rng);
+            const double sgn = (U(rng) < 0.5) ? 1.0 : -1.0;
+            for (int i = c0; i < n; ++i) sig[i] += sgn * 5.0 * std::exp(-(i - c0) / 22.0);
+        }
+
+        // normalize so channels display at a comparable gain (95th percentile);
+        // large artifacts deliberately overflow into neighbours, as on real EEG.
+        std::vector<double> mag(n);
+        for (int i = 0; i < n; ++i) mag[i] = std::fabs(sig[i]);
+        const int q = std::min(n - 1, static_cast<int>(0.95 * n));
+        std::nth_element(mag.begin(), mag.begin() + q, mag.end());
+        const double p95 = mag[q] + 1e-9;
+
+        auto &col = m_channels[ch];
+        col.resize(n);
+        for (int k = 0; k < n; ++k)
+            col[k] = {static_cast<float>(k * kSampleStepPx),
+                      static_cast<float>(sig[k] / p95)};
     }
 }
 
@@ -192,9 +318,8 @@ void EegCanvas::paintEvent(QPaintEvent *)
     title.setWeight(QFont::DemiBold);
     p.setFont(title);
     p.setPen(theme::Text);
-    const QString titleText = useReal
-        ? QStringLiteral("EEG · %1 channels").arg(nRows)
-        : QStringLiteral("EEG · 8 channels");
+    const QString titleText =
+        QStringLiteral("EEG · %1 channels").arg(useReal ? nRows : kChannels);
     p.drawText(QRect(18, 0, width(), m_headerH),
                Qt::AlignVCenter | Qt::AlignLeft, titleText);
     const int titleW = QFontMetrics(title).horizontalAdvance(titleText);
